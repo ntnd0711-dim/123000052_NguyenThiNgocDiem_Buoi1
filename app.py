@@ -1,27 +1,46 @@
 # app.py
 import streamlit as st
 from underthesea import word_tokenize, pos_tag
-
-st.set_page_config(page_title="Demo POS Tagging Tiếng Việt", layout="wide")
-
-st.title("Demo POS Tagging Tiếng Việt với Streamlit")
-st.write("Nhập một câu tiếng Việt, ứng dụng sẽ tách từ và gán nhãn từ loại.")
-
-# Input
-text = st.text_area(
-    "Nhập câu tiếng Việt ở đây:",
-    "Hệ thống phân loại bình luận tiếng Việt rất chính xác.",
-    height=100
-)
-
-analyze_clicked = st.button("🔍 Phân tích", type="primary", width="stretch")
-
-col1, col2 = st.columns(2)
-
 import pandas as pd
 import base64
 
-# Bảng giải thích nhãn từ loại
+# =========================================================
+# CONFIG
+# =========================================================
+st.set_page_config(
+    page_title="Demo POS Tagging Tiếng Việt",
+    page_icon="🧠",
+    layout="wide"
+)
+
+# =========================================================
+# TITLE
+# =========================================================
+st.title("🧠 Demo POS Tagging Tiếng Việt với Streamlit")
+st.write(
+    "Nhập một câu tiếng Việt, ứng dụng sẽ tách từ và gán nhãn từ loại."
+)
+
+# =========================================================
+# INPUT
+# =========================================================
+text = st.text_area(
+    "✍️ Nhập câu tiếng Việt ở đây:",
+    "Hệ thống phân loại bình luận tiếng Việt rất chính xác.",
+    height=120
+)
+
+analyze_clicked = st.button(
+    "🔍 Phân tích",
+    type="primary",
+    use_container_width=True
+)
+
+col1, col2 = st.columns(2)
+
+# =========================================================
+# POS TAG EXPLANATION
+# =========================================================
 POS_TAGS_EXPLANATION = {
     "N": "Danh từ",
     "Np": "Danh từ riêng",
@@ -36,7 +55,7 @@ POS_TAGS_EXPLANATION = {
     "E": "Giới từ",
     "C": "Liên từ",
     "I": "Thán từ",
-    "T": "Trợ từ, tiểu từ",
+    "T": "Trợ từ / Tiểu từ",
     "B": "Từ gốc Hán-Việt",
     "Y": "Từ viết tắt",
     "S": "Từ ngoại lai",
@@ -44,7 +63,9 @@ POS_TAGS_EXPLANATION = {
     "CH": "Dấu câu",
 }
 
-# Màu cho từng loại từ loại
+# =========================================================
+# COLORS FOR POS TAGS
+# =========================================================
 POS_COLORS = {
     "N": "#FF6B6B",
     "Np": "#FF4444",
@@ -67,23 +88,189 @@ POS_COLORS = {
     "CH": "#BDC3C7",
 }
 
-# TODO: Thêm xử lý tokenize và hiển thị kết quả ở col1
-# TODO: Thêm xử lý POS tagging và hiển thị kết quả ở col2
-# TODO: Thêm bảng giải thích các nhãn từ loại (POS tags)
-# TODO: Thêm xử lý lỗi khi input rỗng
-# TODO: Thêm tính năng export kết quả ra file CSV
-# TODO: Thêm highlight màu cho từng loại từ loại khác nhau
-
-# Lưu kết quả vào session_state để không mất khi rerun
+# =========================================================
+# SESSION STATE
+# =========================================================
 if analyze_clicked:
+
+    # =========================================
+    # HANDLE EMPTY INPUT
+    # =========================================
     if not text.strip():
         st.error("⚠️ Vui lòng nhập nội dung!")
         st.session_state.pop("pos_result", None)
+
     else:
-        st.session_state["pos_text"] = text
-        st.session_state["pos_tokens"] = word_tokenize(text)
-        st.session_state["pos_result"] = pos_tag(text)
-        
+        try:
+            # =========================================
+            # TOKENIZE
+            # =========================================
+            tokens = word_tokenize(text)
+
+            # =========================================
+            # POS TAGGING
+            # =========================================
+            pos_result = pos_tag(text)
+
+            # =========================================
+            # SAVE SESSION
+            # =========================================
+            st.session_state["pos_text"] = text
+            st.session_state["pos_tokens"] = tokens
+            st.session_state["pos_result"] = pos_result
+
+        except Exception as e:
+            st.error(f"❌ Có lỗi xảy ra: {e}")
+
+# =========================================================
+# DISPLAY RESULT
+# =========================================================
 if "pos_result" in st.session_state:
+
     pos_result = st.session_state["pos_result"]
     tokens = st.session_state["pos_tokens"]
+
+    # =====================================================
+    # COLUMN 1 - TOKENIZE
+    # =====================================================
+    with col1:
+
+        st.subheader("✂️ Kết quả tách từ")
+
+        st.write("### Danh sách token")
+
+        token_df = pd.DataFrame({
+            "STT": range(1, len(tokens) + 1),
+            "Token": tokens
+        })
+
+        st.dataframe(
+            token_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.write("### Chuỗi sau khi tokenize")
+
+        token_html = ""
+
+        for token in tokens:
+            token_html += f"""
+            <span style="
+                background-color:#f1f3f6;
+                padding:8px 12px;
+                margin:5px;
+                border-radius:10px;
+                display:inline-block;
+                font-weight:600;
+            ">
+                {token}
+            </span>
+            """
+
+        st.markdown(token_html, unsafe_allow_html=True)
+
+    # =====================================================
+    # COLUMN 2 - POS TAGGING
+    # =====================================================
+    with col2:
+
+        st.subheader("🏷️ Kết quả POS Tagging")
+
+        pos_data = []
+
+        for word, tag in pos_result:
+
+            meaning = POS_TAGS_EXPLANATION.get(
+                tag,
+                "Không xác định"
+            )
+
+            pos_data.append({
+                "Từ": word,
+                "POS": tag,
+                "Ý nghĩa": meaning
+            })
+
+        pos_df = pd.DataFrame(pos_data)
+
+        st.dataframe(
+            pos_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # =============================================
+        # HIGHLIGHT COLOR
+        # =============================================
+        st.write("### Highlight từ loại")
+
+        highlight_html = ""
+
+        for word, tag in pos_result:
+
+            color = POS_COLORS.get(tag, "#D5DBDB")
+
+            highlight_html += f"""
+            <span style="
+                background-color:{color};
+                color:black;
+                padding:8px 12px;
+                margin:5px;
+                border-radius:12px;
+                display:inline-block;
+                font-weight:bold;
+                box-shadow:1px 1px 3px rgba(0,0,0,0.2);
+            ">
+                {word}
+                <small style="margin-left:5px;">
+                    ({tag})
+                </small>
+            </span>
+            """
+
+        st.markdown(highlight_html, unsafe_allow_html=True)
+
+    # =====================================================
+    # EXPORT CSV
+    # =====================================================
+    st.divider()
+
+    st.subheader("⬇️ Export kết quả")
+
+    csv = pos_df.to_csv(index=False).encode("utf-8-sig")
+
+    st.download_button(
+        label="📥 Tải file CSV",
+        data=csv,
+        file_name="pos_tagging_result.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+
+    # =====================================================
+    # POS TAG EXPLANATION TABLE
+    # =====================================================
+    st.divider()
+
+    st.subheader("📚 Bảng giải thích nhãn từ loại")
+
+    explain_df = pd.DataFrame(
+        list(POS_TAGS_EXPLANATION.items()),
+        columns=["POS Tag", "Ý nghĩa"]
+    )
+
+    st.dataframe(
+        explain_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.divider()
+
+st.caption(
+    "Ứng dụng sử dụng thư viện Underthesea để xử lý NLP tiếng Việt."
+)
